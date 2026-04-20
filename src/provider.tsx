@@ -7,15 +7,15 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import {actionSheetEventManager} from './eventmanager';
-import {ActionSheetProps, ActionSheetRef, Sheets} from './types';
+import { actionSheetEventManager } from './eventmanager';
+import { ActionSheetProps, ActionSheetRef, Sheets } from './types';
 
 export const providerRegistryStack: string[] = [];
 
 /**
  * An object that holds all the sheet components against their ids.
  */
-export const sheetsRegistry: {[id: string]: React.ElementType} = {};
+export const sheetsRegistry: { [id: string]: React.ElementType } = {};
 
 export interface SheetProps<SheetId extends keyof Sheets = never> {
   sheetId: SheetId | (string & {});
@@ -144,7 +144,7 @@ export function useSheetPayload<SheetId extends keyof Sheets = never>(
   return useContext(SheetPayloadContext) as Sheets[SheetId]['payload'];
 }
 
-const RenderSheet = ({id, context}: {id: string; context: string}) => {
+const RenderSheet = ({ id, context }: { id: string; context: string }) => {
   const [payload, setPayload] = useState();
   const [overrideProps, setOverrideProps] = useState<ActionSheetProps>(null);
   const [visible, setVisible] = useState(false);

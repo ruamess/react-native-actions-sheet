@@ -1,12 +1,12 @@
 /* eslint-disable curly */
-import {RefObject} from 'react';
-import {actionSheetEventManager} from './eventmanager';
-import {providerRegistryStack, sheetsRegistry} from './provider';
-import {ActionSheetProps, ActionSheetRef, Sheets} from './types';
+import { RefObject } from 'react';
+import { actionSheetEventManager } from './eventmanager';
+import { providerRegistryStack, sheetsRegistry } from './provider';
+import { ActionSheetProps, ActionSheetRef, Sheets } from './types';
 let baseZindex = 999;
 // Array of all the ids of ActionSheets currently rendered in the app.
 const renderedSheetIds: string[] = [];
-const refs: {[name: string]: RefObject<ActionSheetRef>} = {};
+const refs: { [name: string]: RefObject<ActionSheetRef> } = {};
 
 /**
  * Get rendered action sheets stack
@@ -61,7 +61,7 @@ export function getZIndexFromStack(id: string, context: string) {
 }
 
 class _SheetManager {
-  context(options?: {context?: string; id?: string}) {
+  context(options?: { context?: string; id?: string }) {
     if (!options) options = {};
     if (!options?.context) {
       // If no context is provided, use to current top most context
@@ -103,7 +103,7 @@ class _SheetManager {
 
       /**
        * Override a ActionSheet's props that were defined when the component was declared.
-       * 
+       *
        * You need to forward these props to the ActionSheet component manually.
        * ```tsx
        * function ExampleSheet(props: SheetProps<'example-sheet'>) {
@@ -178,7 +178,7 @@ class _SheetManager {
 
       /**
        * Override a ActionSheet's props that were defined when the component was declared.
-       * 
+       *
        * You need to forward these props to the ActionSheet component manually.
        * ```tsx
        * function ExampleSheet(props: SheetProps<'example-sheet'>) {

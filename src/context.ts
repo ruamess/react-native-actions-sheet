@@ -1,7 +1,7 @@
-import {createContext, createRef, RefObject, useContext} from 'react';
-import {actionSheetEventManager} from './eventmanager';
+import { createContext, createRef, RefObject, useContext } from 'react';
+import { actionSheetEventManager } from './eventmanager';
 
-export type ContentSize = {w: number; h: number};
+export type ContentSize = { w: number; h: number };
 export type LayoutRect = {
   w: number;
   h: number;
@@ -24,7 +24,7 @@ export type DraggableNodeOptions = {
 export const usePanGestureContext = () => useContext(PanGestureRefContext);
 
 export type NodesRef = {
-  offset: RefObject<{x: number; y: number}>;
+  offset: RefObject<{ x: number; y: number }>;
   ref: RefObject<any>;
   rect: RefObject<LayoutRect>;
   handlerConfig: DraggableNodeOptions;

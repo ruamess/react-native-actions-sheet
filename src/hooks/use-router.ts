@@ -1,6 +1,6 @@
-import {createContext, useCallback, useContext, useState} from 'react';
-import {Sheets, ActionSheetRef} from '../types';
-import {SharedValue, withTiming} from 'react-native-reanimated';
+import { createContext, useCallback, useContext, useState } from 'react';
+import { Sheets, ActionSheetRef } from '../types';
+import { SharedValue, withTiming } from 'react-native-reanimated';
 
 export type RouteDefinition<T extends {} = {}> = T;
 
@@ -114,10 +114,10 @@ export const useRouter = ({
           if (currentIndex > -1) {
             const nextStack = [...state];
             nextStack.splice(currentIndex, 1);
-            return [...nextStack, {...next, params: params || next.params}];
+            return [...nextStack, { ...next, params: params || next.params }];
           }
           onNavigate?.(next.name);
-          return [...state, {...next, params: params || next.params}];
+          return [...state, { ...next, params: params || next.params }];
         });
         setTimeout(() => animate(0, 1, 150));
       }, 100);
@@ -165,7 +165,7 @@ export const useRouter = ({
           onNavigateBack?.(nextStack[nextStack.length - 1]?.name);
           return [...nextStack, next];
         }
-        
+
         onNavigateBack?.(next.name);
         return [...stack, next];
       });
@@ -219,7 +219,7 @@ export const RouterParamsContext = createContext<any>(undefined);
 export function useSheetRouteParams<
   SheetId extends keyof Sheets = never,
   RouteKey extends keyof Sheets[SheetId]['routes'] = never,
-  //@ts-ignore
+//@ts-ignore
 >(
   _id?: SheetId | (string & {}),
   _routeKey?: RouteKey | (string & {}),

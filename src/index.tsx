@@ -38,7 +38,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DraggableNodes,
   DraggableNodesContext,
@@ -46,17 +46,17 @@ import {
   NodesRef,
   PanGestureRefContext,
 } from './context';
-import EventManager, {actionSheetEventManager} from './eventmanager';
-import {useAccessibility} from './hooks/use-accessibility';
+import EventManager, { actionSheetEventManager } from './eventmanager';
+import { useAccessibility } from './hooks/use-accessibility';
 import {
   Route,
   RouterContext,
   RouterParamsContext,
   useRouter,
 } from './hooks/use-router';
-import {resolveScrollRef} from './hooks/use-scroll-handlers';
+import { resolveScrollRef } from './hooks/use-scroll-handlers';
 import useSheetManager from './hooks/use-sheet-manager';
-import {useKeyboard} from './hooks/useKeyboard';
+import { useKeyboard } from './hooks/useKeyboard';
 import {
   providerRegistryStack,
   SheetProvider,
@@ -65,10 +65,10 @@ import {
   useSheetPayload,
   useSheetRef,
 } from './provider';
-import {getZIndexFromStack, SheetManager} from './sheetmanager';
-import {styles} from './styles';
-import {ActionSheetProps, ActionSheetRef, CloseRequestType} from './types';
-import {getElevation, SUPPORTED_ORIENTATIONS} from './utils';
+import { getZIndexFromStack, SheetManager } from './sheetmanager';
+import { styles } from './styles';
+import { ActionSheetProps, ActionSheetRef, CloseRequestType } from './types';
+import { getElevation, SUPPORTED_ORIENTATIONS } from './utils';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default forwardRef<ActionSheetRef, ActionSheetProps>(
@@ -161,7 +161,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const providerId = useRef(`$$-auto-${sheetId}-${currentContext}-provider`);
     providerId.current = `$$-auto-${sheetId}-${currentContext}-provider`;
 
-    const {visible, setVisible, visibleRef} = useSheetManager({
+    const { visible, setVisible, visibleRef } = useSheetManager({
       id: sheetId,
       onHide: data => {
         hideSheet(undefined, data, true);
@@ -416,19 +416,19 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
             actionSheetHeight.current +
             minTranslate -
             (actionSheetHeight.current * snapPoints[currentSnapIndex.current]) /
-              100;
+            100;
 
           initial =
             (keyboard.keyboardShown || keyboardWasVisible.current) &&
-            initial <= nextInitialValue &&
-            initial >= minTranslate
+              initial <= nextInitialValue &&
+              initial >= minTranslate
               ? initial
               : nextInitialValue;
 
           const sheetBottomEdgePosition =
             initial +
             (actionSheetHeight.current * snapPoints[currentSnapIndex.current]) /
-              100;
+            100;
 
           const sheetPositionWithKeyboard =
             sheetBottomEdgePosition -
@@ -688,10 +688,10 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
 
     function getRectBoundary(rect?: LayoutRect | null) {
       if (rect) {
-        const {w, h, px, py} = rect;
-        return {...rect, boundryX: px + w, boundryY: py + h};
+        const { w, h, px, py } = rect;
+        return { ...rect, boundryX: px + w, boundryY: py + h };
       }
-      return {w: 0, h: 0, px: 0, py: 0, x: 0, y: 0, boundryX: 0, boundryY: 0};
+      return { w: 0, h: 0, px: 0, py: 0, x: 0, y: 0, boundryX: 0, boundryY: 0 };
     }
 
     const getActiveDraggableNodes = React.useCallback(
@@ -855,7 +855,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                     const refreshControlBounds =
                       node.rectWithBoundary.py +
                       node.rectWithBoundary.h *
-                        node.node.handlerConfig.refreshControlBoundary;
+                      node.node.handlerConfig.refreshControlBoundary;
 
                     if (!refreshControlBounds) continue;
                     if (absoluteY < refreshControlBounds) {
@@ -949,52 +949,52 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
 
       return Platform.OS === 'web'
         ? PanResponder.create({
-            onMoveShouldSetPanResponder: (_event, gesture) => {
-              let vy = gesture.vy < 0 ? gesture.vy * -1 : gesture.vy;
-              let vx = gesture.vx < 0 ? gesture.vx * -1 : gesture.vx;
-              if (vy < 0.05 || vx > 0.05) {
-                return false;
-              }
+          onMoveShouldSetPanResponder: (_event, gesture) => {
+            let vy = gesture.vy < 0 ? gesture.vy * -1 : gesture.vy;
+            let vx = gesture.vx < 0 ? gesture.vx * -1 : gesture.vx;
+            if (vy < 0.05 || vx > 0.05) {
+              return false;
+            }
 
-              const activeDraggableNodes = getActiveDraggableNodes(
-                _event.nativeEvent.pageX,
-                _event.nativeEvent.pageY,
-              );
-              for (let node of activeDraggableNodes) {
-                const scrollRef = resolveScrollRef(node.node.ref);
-                offsets.push((scrollRef as HTMLDivElement).scrollTop);
-              }
-              return true;
-            },
-            onStartShouldSetPanResponder: (_event, _gesture) => {
-              const activeDraggableNodes = getActiveDraggableNodes(
-                _event.nativeEvent.pageX,
-                _event.nativeEvent.pageY,
-              );
-              for (let node of activeDraggableNodes) {
-                const scrollRef = resolveScrollRef(node.node.ref);
-                offsets.push((scrollRef as HTMLDivElement).scrollTop);
-              }
-              return true;
-            },
-            onPanResponderMove: (_event, gesture) => {
-              onChange(
-                _event.nativeEvent.pageX,
-                _event.nativeEvent.pageY,
-                gesture.dy,
-              );
-            },
-            onPanResponderEnd: onEnd,
-          })
+            const activeDraggableNodes = getActiveDraggableNodes(
+              _event.nativeEvent.pageX,
+              _event.nativeEvent.pageY,
+            );
+            for (let node of activeDraggableNodes) {
+              const scrollRef = resolveScrollRef(node.node.ref);
+              offsets.push((scrollRef as HTMLDivElement).scrollTop);
+            }
+            return true;
+          },
+          onStartShouldSetPanResponder: (_event, _gesture) => {
+            const activeDraggableNodes = getActiveDraggableNodes(
+              _event.nativeEvent.pageX,
+              _event.nativeEvent.pageY,
+            );
+            for (let node of activeDraggableNodes) {
+              const scrollRef = resolveScrollRef(node.node.ref);
+              offsets.push((scrollRef as HTMLDivElement).scrollTop);
+            }
+            return true;
+          },
+          onPanResponderMove: (_event, gesture) => {
+            onChange(
+              _event.nativeEvent.pageX,
+              _event.nativeEvent.pageY,
+              gesture.dy,
+            );
+          },
+          onPanResponderEnd: onEnd,
+        })
         : Gesture.Pan()
-            .withRef(panGestureRef)
-            .onChange(event =>
-              onChange(event.absoluteX, event.absoluteY, event.translationY),
-            )
-            .runOnJS(true)
-            .activeOffsetY([-5, 5])
-            .failOffsetX([-5, 5])
-            .onEnd(onEnd);
+          .withRef(panGestureRef)
+          .onChange(event =>
+            onChange(event.absoluteX, event.absoluteY, event.translationY),
+          )
+          .runOnJS(true)
+          .activeOffsetY([-5, 5])
+          .failOffsetX([-5, 5])
+          .onEnd(onEnd);
     }, [gestureEnabled]);
 
     const onTouch = (event: GestureResponderEvent) => {
@@ -1142,41 +1142,41 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
       () =>
         isModal && !props.backgroundInteractionEnabled
           ? {
-              visible: true,
-              animationType: 'none',
-              testID: props.testIDs?.modal || props.testID,
-              supportedOrientations: SUPPORTED_ORIENTATIONS,
-              onShow: props.onOpen,
-              onRequestClose: onModalRequestClose,
-              transparent: true,
-              /**
-               * Always true, it causes issue with keyboard handling.
-               */
-              statusBarTranslucent: true,
-            }
+            visible: true,
+            animationType: 'none',
+            testID: props.testIDs?.modal || props.testID,
+            supportedOrientations: SUPPORTED_ORIENTATIONS,
+            onShow: props.onOpen,
+            onRequestClose: onModalRequestClose,
+            transparent: true,
+            /**
+             * Always true, it causes issue with keyboard handling.
+             */
+            statusBarTranslucent: true,
+          }
           : {
-              testID: props.testIDs?.root || props.testID,
-              onLayout: () => {
-                hardwareBackPressEvent.current = BackHandler.addEventListener(
-                  'hardwareBackPress',
-                  onHardwareBackPress,
-                );
-                props?.onOpen?.();
-              },
-              style: {
-                position: 'absolute',
-                zIndex: zIndex
-                  ? zIndex
-                  : sheetId
-                    ? getZIndexFromStack(sheetId, currentContext)
-                    : 999,
-                width: '100%',
-                height: '100%',
-              },
-              pointerEvents: props?.backgroundInteractionEnabled
-                ? 'box-none'
-                : 'auto',
+            testID: props.testIDs?.root || props.testID,
+            onLayout: () => {
+              hardwareBackPressEvent.current = BackHandler.addEventListener(
+                'hardwareBackPress',
+                onHardwareBackPress,
+              );
+              props?.onOpen?.();
             },
+            style: {
+              position: 'absolute',
+              zIndex: zIndex
+                ? zIndex
+                : sheetId
+                  ? getZIndexFromStack(sheetId, currentContext)
+                  : 999,
+              width: '100%',
+              height: '100%',
+            },
+            pointerEvents: props?.backgroundInteractionEnabled
+              ? 'box-none'
+              : 'auto',
+          },
       [
         currentContext,
         isModal,
@@ -1297,7 +1297,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                       ) : null}
 
                       {dimensions.height === -1 &&
-                      Platform.OS === 'web' ? null : (
+                        Platform.OS === 'web' ? null : (
                         <Animated.View
                           pointerEvents="box-none"
                           style={[
@@ -1320,10 +1320,10 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                               maxWidth: containerStyle?.maxWidth,
                               ...(!disableElevation
                                 ? getElevation(
-                                    typeof elevation === 'number'
-                                      ? elevation
-                                      : 5,
-                                  )
+                                  typeof elevation === 'number'
+                                    ? elevation
+                                    : 5,
+                                )
                                 : {}),
                               height: dimensions.height,
                               maxHeight: dimensions.height,
@@ -1334,8 +1334,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                             {...(Platform.OS === 'web'
                               ? ({} as any)
                               : {
-                                  gesture: panGesture as PanGesture,
-                                })}>
+                                gesture: panGesture as PanGesture,
+                              })}>
                             <Animated.View
                               {...((panGesture as any)?.panHandlers || {})}
                               onLayout={event =>
@@ -1353,15 +1353,15 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                                 {
                                   maxHeight: keyboard.keyboardShown
                                     ? dimensions.height -
-                                      insets.top -
-                                      keyboard.keyboardHeight
+                                    insets.top -
+                                    keyboard.keyboardHeight
                                     : dimensions.height - insets.top,
                                   // Using this to trigger layout when keyboard is shown
                                   marginTop: keyboard.keyboardShown ? 0.5 : 0,
                                   paddingBottom:
                                     (Platform.OS === 'ios' &&
                                       keyboard.keyboardShown) ||
-                                    !useBottomSafeAreaPadding
+                                      !useBottomSafeAreaPadding
                                       ? 0
                                       : insets.bottom,
                                 },

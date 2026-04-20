@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   NativeMethods,
   NativeScrollEvent,
@@ -11,7 +11,7 @@ import {
   useDraggableNodesContext,
   usePanGestureContext,
 } from '../context';
-import {EventHandlerSubscription} from '../eventmanager';
+import { EventHandlerSubscription } from '../eventmanager';
 
 export const ScrollState = {
   END: -1,
@@ -43,7 +43,7 @@ export function useDraggable<T>(options?: DraggableNodeOptions) {
   const gestureContext = usePanGestureContext();
   const draggableNodes = useDraggableNodesContext();
   const nodeRef = useRef<T>(null);
-  const offset = useRef({x: 0, y: 0});
+  const offset = useRef({ x: 0, y: 0 });
   const layout = useRef<LayoutRect>(InitialLayoutRect);
   useEffect(() => {
     const pushNode = () => {
@@ -85,7 +85,7 @@ export function useDraggable<T>(options?: DraggableNodeOptions) {
 }
 
 /**
- * Create a custom scrollable view inside the action sheet. 
+ * Create a custom scrollable view inside the action sheet.
  * The scrollable view must implement `onScroll`, and `onLayout` props.
  * @example
  * ```tsx
@@ -97,13 +97,13 @@ export function useDraggable<T>(options?: DraggableNodeOptions) {
     {...handlers}
   >
   </ScrollableView>
-  
+
   </NativeViewGestureHandler>
  * ```
  */
 export function useScrollHandlers<T>(options?: DraggableNodeOptions) {
   const [_render, _setRender] = useState(false);
-  const {nodeRef, gestureContext, offset, layout} = useDraggable<T>(options);
+  const { nodeRef, gestureContext, offset, layout } = useDraggable<T>(options);
   const timer = useRef<NodeJS.Timeout>(null);
   const subscription = useRef<EventHandlerSubscription>(null);
   const onMeasure = useCallback(
@@ -148,7 +148,7 @@ export function useScrollHandlers<T>(options?: DraggableNodeOptions) {
 
   const onScroll = React.useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const {x, y} = event.nativeEvent.contentOffset;
+      const { x, y } = event.nativeEvent.contentOffset;
       const maxOffsetX = event.nativeEvent.contentSize.width - layout.current.w;
       const maxOffsetY =
         event.nativeEvent.contentSize.height - layout.current.h;

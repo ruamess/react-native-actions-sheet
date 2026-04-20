@@ -34,14 +34,14 @@ export function useKeyboard(enabled: boolean) {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
   const handleKeyboardDidShow: KeyboardEventListener = React.useCallback(e => {
     if (pauseKeyboardHandler.current) return;
-    setCoordinates({start: e.startCoordinates, end: e.endCoordinates});
+    setCoordinates({ start: e.startCoordinates, end: e.endCoordinates });
     setKeyboardHeight(e.endCoordinates.height);
     setShown(true);
   }, []);
   const handleKeyboardDidHide: KeyboardEventListener = React.useCallback(e => {
     setShown(false);
     if (e) {
-      setCoordinates({start: e.startCoordinates, end: e.endCoordinates});
+      setCoordinates({ start: e.startCoordinates, end: e.endCoordinates });
     } else {
       setCoordinates(initialValue);
       setKeyboardHeight(0);

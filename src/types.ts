@@ -6,11 +6,11 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import {WithSpringConfig} from 'react-native-reanimated';
+import { WithSpringConfig } from 'react-native-reanimated';
 import EventManager from './eventmanager';
-import {Route} from './hooks/use-router';
+import { Route } from './hooks/use-router';
 
-export interface Sheets {}
+export interface Sheets { }
 
 export type DefaultSheetDefinition = {
   payload?: any;
@@ -389,7 +389,7 @@ export type ActionSheetProps<SheetId extends keyof Sheets = never> = {
    *
    * @deprecated Insets are used internally by default through react-native-safe-area-insets. This prop is no-op.
    */
-  safeAreaInsets?: {top: number; left: number; right: number; bottom: number};
+  safeAreaInsets?: { top: number; left: number; right: number; bottom: number };
   /**
    * A list of routes for the router.
    */

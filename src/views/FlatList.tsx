@@ -1,8 +1,8 @@
 /* eslint-disable curly */
-import React, {RefObject, useImperativeHandle} from 'react';
-import {FlatList as RNGHFlatList} from 'react-native-gesture-handler';
-import {useScrollHandlers} from '../hooks/use-scroll-handlers';
-import {FlatListProps} from 'react-native';
+import React, { RefObject, useImperativeHandle } from 'react';
+import { FlatList as RNGHFlatList } from 'react-native-gesture-handler';
+import { useScrollHandlers } from '../hooks/use-scroll-handlers';
+import { FlatListProps } from 'react-native';
 type Props<T = any> = FlatListProps<T> &
   React.RefAttributes<RNGHFlatList> & {
     /**

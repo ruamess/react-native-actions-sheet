@@ -1,5 +1,5 @@
-import {AccessibilityInfo, Platform} from 'react-native';
-import {useEffect, useRef} from 'react';
+import { AccessibilityInfo, Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
 
 let accessibilityInfo = {
   prefersCrossFadeTransitions: false,
@@ -29,7 +29,7 @@ export function useAccessibility() {
   const accessibilityRef = useRef(accessibilityInfo);
 
   useEffect(() => {
-    let subscription: {remove: () => void};
+    let subscription: { remove: () => void };
     if (Platform.OS === 'ios') {
       const handler = () => {
         getAccessibilityInfo().then(

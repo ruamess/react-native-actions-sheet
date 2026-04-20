@@ -1,7 +1,7 @@
 /* eslint-disable curly */
-import {useEffect, useRef, useState} from 'react';
-import {actionSheetEventManager} from '../eventmanager';
-import {useProviderContext} from '../provider';
+import { useEffect, useRef, useState } from 'react';
+import { actionSheetEventManager } from '../eventmanager';
+import { useProviderContext } from '../provider';
 
 const useSheetManager = ({
   id,
