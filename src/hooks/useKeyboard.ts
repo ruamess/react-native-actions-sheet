@@ -34,8 +34,15 @@ export function useKeyboard(enabled: boolean) {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
   const handleKeyboardDidShow: KeyboardEventListener = React.useCallback(e => {
     if (pauseKeyboardHandler.current) return;
+    const nextHeight = e?.endCoordinates?.height || 0;
+    if (Platform.OS === 'android' && nextHeight <= 0) {
+      setShown(false);
+      setCoordinates(initialValue);
+      setKeyboardHeight(0);
+      return;
+    }
     setCoordinates({ start: e.startCoordinates, end: e.endCoordinates });
-    setKeyboardHeight(e.endCoordinates.height);
+    setKeyboardHeight(nextHeight);
     setShown(true);
   }, []);
   const handleKeyboardDidHide: KeyboardEventListener = React.useCallback(e => {
@@ -51,19 +58,18 @@ export function useKeyboard(enabled: boolean) {
   useEffect(() => {
     let subscriptions: EmitterSubscription[] = [];
     if (enabled) {
-      subscriptions = [
-        Keyboard.addListener('keyboardDidChangeFrame', handleKeyboardDidShow),
-        Keyboard.addListener('keyboardDidHide', handleKeyboardDidHide),
-      ];
       if (Platform.OS == 'android') {
-        subscriptions.push(
+        subscriptions = [
           Keyboard.addListener('keyboardDidShow', handleKeyboardDidShow),
-        );
+          Keyboard.addListener('keyboardDidHide', handleKeyboardDidHide),
+        ];
       } else {
-        subscriptions.push(
+        subscriptions = [
+          Keyboard.addListener('keyboardDidChangeFrame', handleKeyboardDidShow),
+          Keyboard.addListener('keyboardDidHide', handleKeyboardDidHide),
           Keyboard.addListener('keyboardWillShow', handleKeyboardDidShow),
           Keyboard.addListener('keyboardWillHide', handleKeyboardDidHide),
-        );
+        ];
       }
     }
 
@@ -81,6 +87,7 @@ export function useKeyboard(enabled: boolean) {
     pauseKeyboardHandler,
     reset: () => {
       setShown(false);
+      setCoordinates(initialValue);
       setKeyboardHeight(0);
     },
   };

@@ -32,7 +32,8 @@ class EventManager {
 
   publish(name: string, ...args: any[]) {
     this._registry.forEach((props, handler) => {
-      if (props.name === name) handler(...args);
+      if (props.name !== name) return;
+      handler(...args);
       if (props.once) this._registry.delete(handler);
     });
   }

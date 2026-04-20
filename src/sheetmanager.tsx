@@ -29,9 +29,11 @@ export function getSheetStack() {
  * @returns
  */
 export function isRenderedOnTop(id: string, context?: string) {
+  const topSheetId = renderedSheetIds[renderedSheetIds.length - 1];
+  if (!topSheetId) return false;
   return context
-    ? renderedSheetIds[renderedSheetIds.length - 1] === `${id}:${context}`
-    : renderedSheetIds[renderedSheetIds.length - 1].startsWith(id);
+    ? topSheetId === `${id}:${context}`
+    : topSheetId.startsWith(`${id}:`);
 }
 
 /**
@@ -319,9 +321,10 @@ class _SheetManager {
     context?: string,
   ): RefObject<ActionSheetRef<SheetId>> => {
     if (!context) {
-      for (let _id of renderedSheetIds.reverse()) {
+      for (let _id of renderedSheetIds.slice().reverse()) {
         if (_id.includes(`${id}:`)) {
           context = _id.split(':')[1];
+          break;
         }
       }
     }
@@ -329,17 +332,18 @@ class _SheetManager {
   };
 
   add = (id: string, context: string) => {
-    if (renderedSheetIds.indexOf(id) < 0) {
-      renderedSheetIds[renderedSheetIds.length] =
-        `${id}:${context || 'global'}`;
+    const stackId = `${id}:${context || 'global'}`;
+    if (renderedSheetIds.indexOf(stackId) < 0) {
+      renderedSheetIds[renderedSheetIds.length] = stackId;
     }
   };
 
   remove = (id: string, context: string) => {
-    if (renderedSheetIds.indexOf(`${id}:${context}`) > -1) {
-      renderedSheetIds.splice(
-        renderedSheetIds.indexOf(`${id}:${context || 'global'}`),
-      );
+    const stackId = `${id}:${context || 'global'}`;
+    const index = renderedSheetIds.indexOf(stackId);
+    if (index > -1) {
+      renderedSheetIds.splice(index, 1);
+      delete refs[stackId];
     }
   };
   /**
@@ -347,7 +351,7 @@ class _SheetManager {
    */
   getActiveSheets<SheetId extends keyof Sheets>(id: SheetId) {
     return renderedSheetIds
-      .filter(renderdId => renderdId.startsWith(id))
+      .filter(renderdId => renderdId.startsWith(`${id}:`))
       .map(renderdId => {
         const [id, context] = renderdId.split(':');
         return {

@@ -125,17 +125,15 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const insets = useSafeAreaInsets();
     const internalEventManager = React.useMemo(() => new EventManager(), []);
     const currentContext = useProviderContext();
+    const isModalPresentation = isModal && !props.backgroundInteractionEnabled;
     const currentSnapIndex = useRef(initialSnapIndex);
     const accessibilityInfo = useAccessibility();
     const sheetRef = useSheetRef();
-    const sheetHeightRef = useRef(0);
     const minTranslateValue = useRef(0);
-    const keyboardWasVisible = useRef(false);
     const animationListenerId = 266786;
     const id = useSheetIDContext();
     const sheetId = props.id || id;
     const panViewRef = useRef<View>(null);
-    const rootViewContainerRef = useRef<View>(null);
     const payload = useSheetPayload();
     const payloadRef = useRef<any>(undefined);
     payloadRef.current = payload;
@@ -150,7 +148,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const panGestureRef = useRef<GestureType>(undefined);
     const closing = useRef(false);
     const draggableNodes = useRef<NodesRef>([]);
-    const layoutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const layoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [dimensions, setDimensions] = useState({
       width: -1,
       height: -1,
@@ -199,7 +197,32 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const routerRef = useRef(router);
     returnValueRef.current = returnValue;
     routerRef.current = router;
-    const keyboard = useKeyboard(keyboardHandlerEnabled);
+    const keyboard = useKeyboard(
+      keyboardHandlerEnabled && visible && dimensions.height > 0,
+    );
+    const shouldApplyBottomSafeAreaPadding =
+      useBottomSafeAreaPadding &&
+      !(Platform.OS === 'ios' && keyboard.keyboardShown);
+    const androidModalExcludedBottomSpace =
+      Platform.OS === 'android' &&
+      isModalPresentation &&
+      dimensions.height > 0
+        ? Math.max(0, Math.round(Dimensions.get('screen').height - dimensions.height))
+        : 0;
+    const effectiveBottomInset =
+      Platform.OS === 'android' && isModalPresentation
+        ? Math.max(
+          0,
+          insets.bottom - Math.min(insets.bottom, androidModalExcludedBottomSpace),
+        )
+        : insets.bottom;
+    const sheetBottomPadding = shouldApplyBottomSafeAreaPadding
+      ? effectiveBottomInset
+      : 0;
+    const modalNavigationBarTranslucent =
+      Platform.OS === 'android' &&
+      isModalPresentation &&
+      shouldApplyBottomSafeAreaPadding;
     const prevSnapIndex = useRef<number>(initialSnapIndex);
     const draggableNodesContext: DraggableNodes = React.useMemo(
       () => ({
@@ -225,8 +248,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         min?: number,
         gestureEnd?: boolean,
       ) => {
-        let initial = value || initialValue.current;
-        let minTranslate = min || minTranslateValue.current;
+        let initial = value ?? initialValue.current;
+        let minTranslate = min ?? minTranslateValue.current;
         if (!animated) {
           actionSheetOpacity.value = 1;
           translateY.value = initial;
@@ -330,7 +353,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
 
     const hardwareBackPressEvent = useRef<NativeEventSubscription>(null);
     const Root: React.ElementType =
-      isModal && !props?.backgroundInteractionEnabled ? Modal : Animated.View;
+      isModalPresentation ? Modal : Animated.View;
 
     useEffect(() => {
       if (drawUnderStatusBar || props.onChange) {
@@ -389,9 +412,11 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
 
     const onSheetLayout = React.useCallback(
       async (height: number) => {
+        if (height < 10) {
+          return;
+        }
         const processLayout = () => {
           const sheetHeight = height;
-          sheetHeightRef.current = sheetHeight;
           if (dimensionsRef.current.height === -1) {
             return;
           }
@@ -418,12 +443,14 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
             (actionSheetHeight.current * snapPoints[currentSnapIndex.current]) /
             100;
 
-          initial =
-            (keyboard.keyboardShown || keyboardWasVisible.current) &&
-              initial <= nextInitialValue &&
-              initial >= minTranslate
-              ? initial
-              : nextInitialValue;
+          const shouldKeepKeyboardAdjustedPosition =
+            keyboard.keyboardShown &&
+            initial <= nextInitialValue &&
+            initial >= minTranslate;
+
+          initial = shouldKeepKeyboardAdjustedPosition
+            ? initial
+            : nextInitialValue;
 
           const sheetBottomEdgePosition =
             initial +
@@ -1140,7 +1167,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     }, [hideSheet, enableRouterBackNavigation, closeOnPressBack, visible]);
     const rootProps = React.useMemo(
       () =>
-        isModal && !props.backgroundInteractionEnabled
+        isModalPresentation
           ? {
             visible: true,
             animationType: 'none',
@@ -1153,6 +1180,12 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
              * Always true, it causes issue with keyboard handling.
              */
             statusBarTranslucent: true,
+            /**
+             * When we apply bottom safe-area padding inside an Android modal,
+             * the modal must also extend under the nav bar or the inset becomes
+             * visible as phantom blank space above it.
+             */
+            navigationBarTranslucent: modalNavigationBarTranslucent,
           }
           : {
             testID: props.testIDs?.root || props.testID,
@@ -1179,7 +1212,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           },
       [
         currentContext,
-        isModal,
+        isModalPresentation,
+        modalNavigationBarTranslucent,
         onHardwareBackPress,
         onModalRequestClose,
         props,
@@ -1267,7 +1301,6 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                         height: event.nativeEvent.layout.height,
                       });
                     }}
-                    ref={rootViewContainerRef}
                     pointerEvents={
                       props?.backgroundInteractionEnabled ? 'box-none' : 'auto'
                     }
@@ -1358,12 +1391,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                                     : dimensions.height - insets.top,
                                   // Using this to trigger layout when keyboard is shown
                                   marginTop: keyboard.keyboardShown ? 0.5 : 0,
-                                  paddingBottom:
-                                    (Platform.OS === 'ios' &&
-                                      keyboard.keyboardShown) ||
-                                      !useBottomSafeAreaPadding
-                                      ? 0
-                                      : insets.bottom,
+                                  paddingBottom: sheetBottomPadding,
                                 },
                               ]}>
                               {drawUnderStatusBar ? (
