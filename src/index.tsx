@@ -127,6 +127,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const currentContext = useProviderContext();
     const isModalPresentation = isModal && !props.backgroundInteractionEnabled;
     const currentSnapIndex = useRef(initialSnapIndex);
+    const isAndroidModalPresentation =
+      Platform.OS === 'android' && isModalPresentation;
     const accessibilityInfo = useAccessibility();
     const sheetRef = useSheetRef();
     const minTranslateValue = useRef(0);
@@ -197,20 +199,19 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const routerRef = useRef(router);
     returnValueRef.current = returnValue;
     routerRef.current = router;
+    const hasMeasuredViewport = dimensions.height > 0 && dimensions.width > 0;
     const keyboard = useKeyboard(
-      keyboardHandlerEnabled && visible && dimensions.height > 0,
+      keyboardHandlerEnabled && visible && hasMeasuredViewport,
     );
     const shouldApplyBottomSafeAreaPadding =
       useBottomSafeAreaPadding &&
       !(Platform.OS === 'ios' && keyboard.keyboardShown);
     const androidModalExcludedBottomSpace =
-      Platform.OS === 'android' &&
-      isModalPresentation &&
-      dimensions.height > 0
+      isAndroidModalPresentation && dimensions.height > 0
         ? Math.max(0, Math.round(Dimensions.get('screen').height - dimensions.height))
         : 0;
     const effectiveBottomInset =
-      Platform.OS === 'android' && isModalPresentation
+      isAndroidModalPresentation
         ? Math.max(
           0,
           insets.bottom - Math.min(insets.bottom, androidModalExcludedBottomSpace),
@@ -219,10 +220,14 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const sheetBottomPadding = shouldApplyBottomSafeAreaPadding
       ? effectiveBottomInset
       : 0;
-    const modalNavigationBarTranslucent =
-      Platform.OS === 'android' &&
-      isModalPresentation &&
-      shouldApplyBottomSafeAreaPadding;
+    const keyboardOverlap =
+      keyboard.keyboardShown
+        ? keyboard.keyboardHeight +
+        (Platform.OS === 'android' && !shouldApplyBottomSafeAreaPadding
+          ? effectiveBottomInset
+          : 0)
+        : 0;
+    const modalNavigationBarTranslucent = isAndroidModalPresentation;
     const prevSnapIndex = useRef<number>(initialSnapIndex);
     const draggableNodesContext: DraggableNodes = React.useMemo(
       () => ({
@@ -459,14 +464,14 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
 
           const sheetPositionWithKeyboard =
             sheetBottomEdgePosition -
-            (dimensionsRef.current?.height - keyboard.keyboardHeight);
+            (dimensionsRef.current?.height - keyboardOverlap);
 
           initial = keyboard.keyboardShown
             ? initial - sheetPositionWithKeyboard
             : initial;
 
           if (keyboard.keyboardShown) {
-            minTranslate = minTranslate - keyboard.keyboardHeight;
+            minTranslate = minTranslate - keyboardOverlap;
           }
 
           minTranslateValue.current = minTranslate;
@@ -502,7 +507,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         animated,
         snapPoints,
         keyboard.keyboardShown,
-        keyboard.keyboardHeight,
+        keyboardOverlap,
         animationSheetOpacity,
         translateY,
         underlayTranslateY,
@@ -571,6 +576,10 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
             currentSnapIndex.current = initialSnapIndex;
             closing.current = false;
             initialValue.current = -1;
+            setDimensions({
+              width: -1,
+              height: -1,
+            });
             actionSheetOpacity.value = 0;
             translateY.value = Dimensions.get('window').height * 2;
             keyboard.reset();
@@ -1295,10 +1304,45 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                 <DraggableNodesContext.Provider value={draggableNodesContext}>
                   <Animated.View
                     onLayout={event => {
-                      if (event.nativeEvent.layout.height < 10) return;
-                      setDimensions({
-                        width: event.nativeEvent.layout.width,
-                        height: event.nativeEvent.layout.height,
+                      const { width, height } = event.nativeEvent.layout;
+                      if (height < 10 || width < 1 || closing.current || hiding.current) {
+                        return;
+                      }
+
+                      /**
+                       * Android transparent Modal can report a shorter root layout on first
+                       * open than the actual fullscreen presentation height. When that
+                       * happens, the sheet computes its initial translateY from a viewport
+                       * that is too short, which makes part of the outer container visible
+                       * below the content like phantom bottom padding. Opening and closing
+                       * the keyboard later forces a relayout and the gap disappears.
+                       *
+                       * For modal presentation on Android we anchor the sheet to the real
+                       * screen height instead of trusting the first root layout height.
+                       * Width still comes from layout so orientation changes continue to
+                       * propagate correctly.
+                       */
+                      const normalizedHeight = isAndroidModalPresentation
+                        ? Dimensions.get('screen').height
+                        : height;
+
+                      setDimensions(current => {
+                        const orientationChanged =
+                          current.width > 0 && current.width !== width;
+                        const nextHeight = orientationChanged
+                          ? normalizedHeight
+                          : current.height > 0
+                            ? Math.max(current.height, normalizedHeight)
+                            : normalizedHeight;
+
+                        if (current.width === width && current.height === nextHeight) {
+                          return current;
+                        }
+
+                        return {
+                          width,
+                          height: nextHeight,
+                        };
                       });
                     }}
                     pointerEvents={
@@ -1329,8 +1373,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                         />
                       ) : null}
 
-                      {dimensions.height === -1 &&
-                        Platform.OS === 'web' ? null : (
+                      {!hasMeasuredViewport ? null : (
                         <Animated.View
                           pointerEvents="box-none"
                           style={[
@@ -1387,7 +1430,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                                   maxHeight: keyboard.keyboardShown
                                     ? dimensions.height -
                                     insets.top -
-                                    keyboard.keyboardHeight
+                                    keyboardOverlap
                                     : dimensions.height - insets.top,
                                   // Using this to trigger layout when keyboard is shown
                                   marginTop: keyboard.keyboardShown ? 0.5 : 0,
