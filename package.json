@@ -1,49 +1,12 @@
 {
   "name": "react-native-actions-sheet",
   "version": "10.1.2",
-  "description": "A Cross Platform(Android & iOS) ActionSheet with a robust and flexible api, native performance and zero dependency code for react native. Create anything you want inside ActionSheet.",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "author": "ammarahm-ed",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ammarahm-ed/react-native-actions-sheet.git"
   },
-  "keywords": [
-    "bottom-animated",
-    "react-native",
-    "javascript",
-    "actionsheet",
-    "android",
-    "ios",
-    "action-sheet",
-    "bottom-sheet",
-    "bottom-drawer",
-    "dialog",
-    "picker",
-    "modal",
-    "drawer",
-    "raw-bottom-sheet",
-    "bottom-app-bar",
-    "react-native-action-sheet",
-    "react",
-    "native",
-    "action",
-    "sheet",
-    "bottom",
-    "sheet"
-  ],
-  "author": "ammarahm-ed",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/ammarahm-ed/react-native-actions-sheet/issues/"
-  },
-  "homepage": "https://github.com/ammarahm-ed/react-native-actions-sheet",
-  "peerDependencies": {
-    "react-native": "*",
-    "react-native-gesture-handler": "*",
-    "react-native-reanimated": "*",
-    "react-native-safe-area-context": "*"
-  },
+  "main": "./dist/index.js",
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
@@ -77,18 +40,59 @@
     "typedoc-plugin-markdown": "^3.13.4",
     "typescript": "^5.8.3"
   },
+  "peerDependencies": {
+    "react-native": "*",
+    "react-native-gesture-handler": "*",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*"
+  },
+  "bugs": {
+    "url": "https://github.com/ammarahm-ed/react-native-actions-sheet/issues/"
+  },
+  "description": "A Cross Platform(Android & iOS) ActionSheet with a robust and flexible api, native performance and zero dependency code for react native. Create anything you want inside ActionSheet.",
   "directories": {
     "example": "example"
   },
+  "homepage": "https://github.com/ammarahm-ed/react-native-actions-sheet",
+  "keywords": [
+    "bottom-animated",
+    "react-native",
+    "javascript",
+    "actionsheet",
+    "android",
+    "ios",
+    "action-sheet",
+    "bottom-sheet",
+    "bottom-drawer",
+    "dialog",
+    "picker",
+    "modal",
+    "drawer",
+    "raw-bottom-sheet",
+    "bottom-app-bar",
+    "react-native-action-sheet",
+    "react",
+    "native",
+    "action",
+    "sheet",
+    "bottom",
+    "sheet"
+  ],
+  "license": "MIT",
+  "packageManager": "bun@1.3.11",
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "docs": "typedoc --plugin typedoc-plugin-markdown --out docs ./index.tsx",
-    "watch": "yarn tsc --watch"
+    "watch": "tsc --watch"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
+  "types": "./dist/index.d.ts",
   "dependencies": {
-    "react-native-linear-gradient": "^2.8.3",
-    "react-native-worklets": "^0.7.1"
+    "react-native-linear-gradient": "^2.8.3"
   }
 }
