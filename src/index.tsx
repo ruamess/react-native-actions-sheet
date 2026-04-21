@@ -6,14 +6,11 @@ import React, {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from 'react';
 import {
   BackHandler,
-  Dimensions,
   GestureResponderEvent,
   Keyboard,
-  LayoutRectangle,
   Modal,
   NativeEventSubscription,
   PanResponder,
@@ -35,6 +32,8 @@ import Animated, {
   runOnUI,
   useAnimatedStyle,
   useSharedValue,
+  type WithSpringConfig,
+  type WithTimingConfig,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -56,6 +55,10 @@ import {
 } from './hooks/use-router';
 import { resolveScrollRef } from './hooks/use-scroll-handlers';
 import useSheetManager from './hooks/use-sheet-manager';
+import {
+  MIN_VIEWPORT_HEIGHT,
+  useSheetViewport,
+} from './hooks/use-sheet-viewport';
 import { useKeyboard } from './hooks/useKeyboard';
 import {
   providerRegistryStack,
@@ -66,11 +69,40 @@ import {
   useSheetRef,
 } from './provider';
 import { getZIndexFromStack, SheetManager } from './sheetmanager';
+import { getOffscreenTranslateY, getSheetLayoutMetrics } from './sheet-layout';
 import { styles } from './styles';
 import { ActionSheetProps, ActionSheetRef, CloseRequestType } from './types';
 import { getElevation, SUPPORTED_ORIENTATIONS } from './utils';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const TRANSLATE_Y_LISTENER_ID = 266786;
+
+function isSpringCloseAnimationConfig(
+  config?: WithSpringConfig | WithTimingConfig,
+): config is WithSpringConfig {
+  if (!config) {
+    return false;
+  }
+
+  return (
+    'clamp' in config ||
+    'damping' in config ||
+    'dampingRatio' in config ||
+    'mass' in config ||
+    'overshootClamping' in config ||
+    'restDisplacementThreshold' in config ||
+    'restSpeedThreshold' in config ||
+    'stiffness' in config ||
+    'velocity' in config
+  );
+}
+
+function isTimingCloseAnimationConfig(
+  config?: WithSpringConfig | WithTimingConfig,
+): config is WithTimingConfig {
+  return !!config && !isSpringCloseAnimationConfig(config);
+}
+
 export default forwardRef<ActionSheetRef, ActionSheetProps>(
   function ActionSheet(
     {
@@ -132,31 +164,29 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const accessibilityInfo = useAccessibility();
     const sheetRef = useSheetRef();
     const minTranslateValue = useRef(0);
-    const animationListenerId = 266786;
     const id = useSheetIDContext();
     const sheetId = props.id || id;
     const panViewRef = useRef<View>(null);
-    const payload = useSheetPayload();
+    const sheetPayload = useSheetPayload();
     const payloadRef = useRef<any>(undefined);
-    payloadRef.current = payload;
-    const gestureBoundaries = useRef<{
-      [name: string]: LayoutRectangle & {
-        scrollOffset?: number;
-      };
-    }>({});
+    payloadRef.current = sheetPayload;
     const hiding = useRef(false);
     const returnValueRef = useRef(returnValue);
-    const sheetPayload = useSheetPayload();
     const panGestureRef = useRef<GestureType>(undefined);
     const closing = useRef(false);
     const draggableNodes = useRef<NodesRef>([]);
-    const layoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [dimensions, setDimensions] = useState({
-      width: -1,
-      height: -1,
+    const sheetLayoutHeightRef = useRef(0);
+    const {
+      dimensions,
+      dimensionsRef,
+      hasMeasuredViewport,
+      resetViewportDimensions,
+      updateViewportDimensions,
+    } = useSheetViewport({
+      isAndroidModalPresentation,
+      closingRef: closing,
+      hidingRef: hiding,
     });
-    const dimensionsRef = useRef(dimensions);
-    dimensionsRef.current = dimensions;
     const containerStyle = StyleSheet.flatten(props.containerStyle);
     const providerId = useRef(`$$-auto-${sheetId}-${currentContext}-provider`);
     providerId.current = `$$-auto-${sheetId}-${currentContext}-provider`;
@@ -183,9 +213,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
       },
     });
 
-    const opacity = useSharedValue(0);
-    const actionSheetOpacity = useSharedValue(0);
-    const translateY = useSharedValue(Dimensions.get('window').height * 2);
+    const backdropOpacity = useSharedValue(0);
+    const translateY = useSharedValue(getOffscreenTranslateY());
     const underlayTranslateY = useSharedValue(130);
     const routeOpacity = useSharedValue(0);
     const router = useRouter({
@@ -199,35 +228,23 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     const routerRef = useRef(router);
     returnValueRef.current = returnValue;
     routerRef.current = router;
-    const hasMeasuredViewport = dimensions.height > 0 && dimensions.width > 0;
     const keyboard = useKeyboard(
       keyboardHandlerEnabled && visible && hasMeasuredViewport,
     );
-    const shouldApplyBottomSafeAreaPadding =
-      useBottomSafeAreaPadding &&
-      !(Platform.OS === 'ios' && keyboard.keyboardShown);
-    const androidModalExcludedBottomSpace =
-      isAndroidModalPresentation && dimensions.height > 0
-        ? Math.max(0, Math.round(Dimensions.get('screen').height - dimensions.height))
-        : 0;
-    const effectiveBottomInset =
-      isAndroidModalPresentation
-        ? Math.max(
-          0,
-          insets.bottom - Math.min(insets.bottom, androidModalExcludedBottomSpace),
-        )
-        : insets.bottom;
-    const sheetBottomPadding = shouldApplyBottomSafeAreaPadding
-      ? effectiveBottomInset
-      : 0;
-    const keyboardOverlap =
-      keyboard.keyboardShown
-        ? keyboard.keyboardHeight +
-        (Platform.OS === 'android' && !shouldApplyBottomSafeAreaPadding
-          ? effectiveBottomInset
-          : 0)
-        : 0;
-    const modalNavigationBarTranslucent = isAndroidModalPresentation;
+    const {
+      keyboardOverlap,
+      modalNavigationBarTranslucent,
+      sheetBottomPadding,
+      sheetMaxHeight,
+    } = getSheetLayoutMetrics({
+      dimensionsHeight: dimensions.height,
+      insetsTop: insets.top,
+      insetsBottom: insets.bottom,
+      keyboardHeight: keyboard.keyboardHeight,
+      keyboardShown: keyboard.keyboardShown,
+      useBottomSafeAreaPadding,
+      isAndroidModalPresentation,
+    });
     const prevSnapIndex = useRef<number>(initialSnapIndex);
     const draggableNodesContext: DraggableNodes = React.useMemo(
       () => ({
@@ -256,7 +273,6 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         let initial = value ?? initialValue.current;
         let minTranslate = min ?? minTranslateValue.current;
         if (!animated) {
-          actionSheetOpacity.value = 1;
           translateY.value = initial;
           return;
         }
@@ -269,14 +285,11 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           accessibilityInfo.current.prefersCrossFadeTransitions &&
           !gestureEnd
         ) {
-          actionSheetOpacity.value = 0;
-          translateY.value = initial;
-          actionSheetOpacity.value = withTiming(1, {
+          translateY.value = withTiming(initial, {
             duration: 150,
-            easing: Easing.in(Easing.ease),
+            easing: Easing.out(Easing.ease),
           });
         } else {
-          actionSheetOpacity.value = 1;
           translateY.value = withSpring(initial, {
             ...config,
             velocity: typeof velocity !== 'number' ? undefined : velocity,
@@ -288,55 +301,68 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
       [animated, openAnimationConfig],
     );
 
-    const animationSheetOpacity = React.useCallback((value: number) => {
-      opacity.value = withTiming(value, {
+    const animateBackdropOpacity = React.useCallback((value: number) => {
+      backdropOpacity.value = withTiming(value, {
         duration: 300,
         easing: Easing.in(Easing.ease),
       });
     }, []);
 
     const hideSheetWithAnimation = React.useCallback(
-      (vy?: number, callback?: () => void, gestureEnd?: boolean) => {
+      (_vy?: number, callback?: () => void, gestureEnd?: boolean) => {
         if (!animated) {
           callback?.();
           return;
         }
-        const config = props.closeAnimationConfig;
-        animationSheetOpacity(0);
+        animateBackdropOpacity(0);
         const endTranslateValue = dimensionsRef.current.height * 1.3;
+        const closeAnimationConfig = props.closeAnimationConfig;
+        const onComplete = (finished?: boolean) => {
+          if (finished && callback) {
+            runOnJS(callback)();
+          }
+        };
+
         if (
-          accessibilityInfo.current.prefersCrossFadeTransitions &&
-          !gestureEnd
+          !(
+            accessibilityInfo.current.prefersCrossFadeTransitions && !gestureEnd
+          ) &&
+          isSpringCloseAnimationConfig(closeAnimationConfig)
         ) {
-          actionSheetOpacity.value = withTiming(
-            0,
-            {
-              duration: 200,
-              easing: Easing.in(Easing.ease),
-            },
-            finished => {
-              if (finished) {
-                translateY.value = endTranslateValue;
-              }
-            },
-          );
-        } else {
-          translateY.value = withTiming(
+          translateY.value = withSpring(
             endTranslateValue,
-            config || {
-              velocity: typeof vy !== 'number' ? 3.0 : vy + 1,
-              duration: 200,
+            {
+              ...closeAnimationConfig,
+              velocity:
+                typeof _vy !== 'number'
+                  ? closeAnimationConfig.velocity
+                  : _vy + 1,
             },
+            onComplete,
           );
+          return;
         }
 
-        /**
-         * Using setTimeout to ensure onClose is triggered when sheet is off screen
-         * or is close to reaching off screen.
-         */
-        setTimeout(() => callback(), config?.duration || 200);
+        const duration =
+          typeof closeAnimationConfig?.duration === 'number'
+            ? closeAnimationConfig.duration
+            : 200;
+        const easing = isTimingCloseAnimationConfig(closeAnimationConfig)
+          ? closeAnimationConfig.easing || Easing.in(Easing.ease)
+          : accessibilityInfo.current.prefersCrossFadeTransitions && !gestureEnd
+            ? Easing.out(Easing.ease)
+            : Easing.in(Easing.ease);
+
+        translateY.value = withTiming(
+          endTranslateValue,
+          {
+            duration,
+            easing,
+          },
+          onComplete,
+        );
       },
-      [animated, animationSheetOpacity, props.closeAnimationConfig, setVisible],
+      [animated, animateBackdropOpacity, props.closeAnimationConfig],
     );
 
     const getCurrentPosition = React.useCallback(() => {
@@ -357,8 +383,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     );
 
     const hardwareBackPressEvent = useRef<NativeEventSubscription>(null);
-    const Root: React.ElementType =
-      isModalPresentation ? Modal : Animated.View;
+    const Root: React.ElementType = isModalPresentation ? Modal : Animated.View;
 
     useEffect(() => {
       if (drawUnderStatusBar || props.onChange) {
@@ -398,7 +423,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           }
         };
         runOnUI(() => {
-          translateY.addListener(animationListenerId, value => {
+          translateY.addListener(TRANSLATE_Y_LISTENER_ID, value => {
             runOnJS(onValueChange)(value);
           });
         })();
@@ -406,7 +431,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
       return () => {
         runOnUI((animationListener: number) => {
           translateY.removeListener(animationListener);
-        })(animationListenerId);
+        })(TRANSLATE_Y_LISTENER_ID);
       };
     }, [
       props?.id,
@@ -416,8 +441,8 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
     ]);
 
     const onSheetLayout = React.useCallback(
-      async (height: number) => {
-        if (height < 10) {
+      (height: number) => {
+        if (height < MIN_VIEWPORT_HEIGHT) {
           return;
         }
         const processLayout = () => {
@@ -477,7 +502,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           minTranslateValue.current = minTranslate;
           initialValue.current = initial;
 
-          animationSheetOpacity(defaultOverlayOpacity);
+          animateBackdropOpacity(defaultOverlayOpacity);
           moveSheetWithAnimation(undefined, initial, minTranslate);
 
           if (initial > 130) {
@@ -489,31 +514,38 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           }
         };
 
-        // Debounce layout updates to prevent jumps
-        if (Platform.OS === 'android' && !animated) {
-          if (layoutTimeoutRef.current) {
-            clearTimeout(layoutTimeoutRef.current);
-          }
-          layoutTimeoutRef.current = setTimeout(() => {
-            processLayout();
-            layoutTimeoutRef.current = null;
-          }, 32);
-          return;
-        }
-
         processLayout();
       },
       [
-        animated,
         snapPoints,
         keyboard.keyboardShown,
         keyboardOverlap,
-        animationSheetOpacity,
+        animateBackdropOpacity,
         translateY,
         underlayTranslateY,
         moveSheetWithAnimation,
       ],
     );
+
+    useEffect(() => {
+      if (
+        !visible ||
+        !hasMeasuredViewport ||
+        closing.current ||
+        sheetLayoutHeightRef.current < MIN_VIEWPORT_HEIGHT
+      ) {
+        return;
+      }
+
+      onSheetLayout(sheetLayoutHeightRef.current);
+    }, [
+      dimensions.height,
+      hasMeasuredViewport,
+      keyboard.keyboardShown,
+      keyboardOverlap,
+      onSheetLayout,
+      visible,
+    ]);
 
     const hideSheet = React.useCallback(
       (
@@ -545,11 +577,13 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           Keyboard.dismiss();
           runOnUI((animationListener: number) => {
             translateY.removeListener(animationListener);
-          })(animationListenerId);
+          })(TRANSLATE_Y_LISTENER_ID);
         }
         const onCompleteAnimation = () => {
           if (closable || isSheetManagerOrRef) {
-            const providerIndex = providerRegistryStack.indexOf(providerId.current);
+            const providerIndex = providerRegistryStack.indexOf(
+              providerId.current,
+            );
             if (providerIndex > -1) {
               providerRegistryStack.splice(providerIndex, 1);
             }
@@ -576,15 +610,12 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
             currentSnapIndex.current = initialSnapIndex;
             closing.current = false;
             initialValue.current = -1;
-            setDimensions({
-              width: -1,
-              height: -1,
-            });
-            actionSheetOpacity.value = 0;
-            translateY.value = Dimensions.get('window').height * 2;
+            sheetLayoutHeightRef.current = 0;
+            resetViewportDimensions();
+            translateY.value = getOffscreenTranslateY();
             keyboard.reset();
           } else {
-            opacity.value = 1;
+            backdropOpacity.value = 1;
             moveSheetWithAnimation(1, undefined, undefined, gestureEnd);
           }
         };
@@ -600,6 +631,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         props.onClose,
         moveSheetWithAnimation,
         keyboard,
+        resetViewportDimensions,
         setVisible,
       ],
     );
@@ -1117,12 +1149,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
             'handleChildScrollEnd has been removed. Please use `useScrollHandlers` hook to enable scrolling in ActionSheet',
           );
         },
-        modifyGesturesForLayout: (_id, layout, scrollOffset) => {
-          gestureBoundaries.current[_id] = {
-            ...layout,
-            scrollOffset: scrollOffset,
-          };
-        },
+        modifyGesturesForLayout: () => { },
         currentSnapIndex: () => currentSnapIndex.current,
         isGestureEnabled: () => gestureEnabled,
         isOpen: () => visibleRef.current.value,
@@ -1143,7 +1170,6 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         getNextPosition,
         notifySnapIndexChanged,
         gestureEnabled,
-        visible,
         keyboard.pauseKeyboardHandler,
       ],
     );
@@ -1174,6 +1200,24 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         hideSheet();
       }
     }, [hideSheet, enableRouterBackNavigation, closeOnPressBack, visible]);
+
+    useEffect(() => {
+      if (!visible || isModalPresentation) {
+        return undefined;
+      }
+
+      hardwareBackPressEvent.current = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onHardwareBackPress,
+      );
+      props.onOpen?.();
+
+      return () => {
+        hardwareBackPressEvent.current?.remove();
+        hardwareBackPressEvent.current = null;
+      };
+    }, [isModalPresentation, onHardwareBackPress, props.onOpen, visible]);
+
     const rootProps = React.useMemo(
       () =>
         isModalPresentation
@@ -1198,13 +1242,6 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
           }
           : {
             testID: props.testIDs?.root || props.testID,
-            onLayout: () => {
-              hardwareBackPressEvent.current = BackHandler.addEventListener(
-                'hardwareBackPress',
-                onHardwareBackPress,
-              );
-              props?.onOpen?.();
-            },
             style: {
               position: 'absolute',
               zIndex: zIndex
@@ -1223,7 +1260,6 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
         currentContext,
         isModalPresentation,
         modalNavigationBarTranslucent,
-        onHardwareBackPress,
         onModalRequestClose,
         props,
         zIndex,
@@ -1260,20 +1296,19 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
       eventManager: internalEventManager,
     };
 
-    const animatedOpacityStyle = useAnimatedStyle(() => {
+    const animatedBackdropStyle = useAnimatedStyle(() => {
       return {
-        opacity: opacity.value,
+        opacity: backdropOpacity.value,
       };
-    }, [opacity]);
+    }, [backdropOpacity]);
 
-    const animatedActionSheetStyle = useAnimatedStyle(() => {
+    const animatedSheetStyle = useAnimatedStyle(() => {
       return {
         transform: [
           {
             translateY: translateY.value,
           },
         ],
-        opacity: actionSheetOpacity.value,
       };
     }, [translateY]);
 
@@ -1305,45 +1340,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                   <Animated.View
                     onLayout={event => {
                       const { width, height } = event.nativeEvent.layout;
-                      if (height < 10 || width < 1 || closing.current || hiding.current) {
-                        return;
-                      }
-
-                      /**
-                       * Android transparent Modal can report a shorter root layout on first
-                       * open than the actual fullscreen presentation height. When that
-                       * happens, the sheet computes its initial translateY from a viewport
-                       * that is too short, which makes part of the outer container visible
-                       * below the content like phantom bottom padding. Opening and closing
-                       * the keyboard later forces a relayout and the gap disappears.
-                       *
-                       * For modal presentation on Android we anchor the sheet to the real
-                       * screen height instead of trusting the first root layout height.
-                       * Width still comes from layout so orientation changes continue to
-                       * propagate correctly.
-                       */
-                      const normalizedHeight = isAndroidModalPresentation
-                        ? Dimensions.get('screen').height
-                        : height;
-
-                      setDimensions(current => {
-                        const orientationChanged =
-                          current.width > 0 && current.width !== width;
-                        const nextHeight = orientationChanged
-                          ? normalizedHeight
-                          : current.height > 0
-                            ? Math.max(current.height, normalizedHeight)
-                            : normalizedHeight;
-
-                        if (current.width === width && current.height === nextHeight) {
-                          return current;
-                        }
-
-                        return {
-                          width,
-                          height: nextHeight,
-                        };
-                      });
+                      updateViewportDimensions(width, height);
                     }}
                     pointerEvents={
                       props?.backgroundInteractionEnabled ? 'box-none' : 'auto'
@@ -1361,13 +1358,11 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                           onPress={onTouch}
                           testID={props.testIDs?.backdrop}
                           style={[
+                            StyleSheet.absoluteFillObject,
                             {
-                              height: dimensions.height + insets.top + 100,
-                              width: '100%',
-                              position: 'absolute',
                               backgroundColor: overlayColor,
                             },
-                            animatedOpacityStyle,
+                            animatedBackdropStyle,
                           ]}
                           {...(props.backdropProps ? props.backdropProps : {})}
                         />
@@ -1404,7 +1399,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                               height: dimensions.height,
                               maxHeight: dimensions.height,
                             },
-                            animatedActionSheetStyle,
+                            animatedSheetStyle,
                           ]}>
                           <GestureMobileOnly
                             {...(Platform.OS === 'web'
@@ -1414,9 +1409,12 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                               })}>
                             <Animated.View
                               {...((panGesture as any)?.panHandlers || {})}
-                              onLayout={event =>
-                                onSheetLayout(event.nativeEvent.layout.height)
-                              }
+                              onLayout={event => {
+                                const nextHeight =
+                                  event.nativeEvent.layout.height;
+                                sheetLayoutHeightRef.current = nextHeight;
+                                onSheetLayout(nextHeight);
+                              }}
                               ref={panViewRef}
                               testID={props.testIDs?.sheet}
                               style={[
@@ -1427,13 +1425,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                                 },
                                 props.containerStyle,
                                 {
-                                  maxHeight: keyboard.keyboardShown
-                                    ? dimensions.height -
-                                    insets.top -
-                                    keyboardOverlap
-                                    : dimensions.height - insets.top,
-                                  // Using this to trigger layout when keyboard is shown
-                                  marginTop: keyboard.keyboardShown ? 0.5 : 0,
+                                  maxHeight: sheetMaxHeight,
                                   paddingBottom: sheetBottomPadding,
                                 },
                               ]}>
@@ -1499,9 +1491,7 @@ export default forwardRef<ActionSheetRef, ActionSheetProps>(
                       {ExtraOverlayComponent}
                       {props.withNestedSheetProvider}
                       {sheetId ? (
-                        <SheetProvider
-                          context={providerId.current}
-                        />
+                        <SheetProvider context={providerId.current} />
                       ) : null}
                     </>
                   </Animated.View>

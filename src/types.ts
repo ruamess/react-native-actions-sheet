@@ -6,7 +6,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { WithSpringConfig } from 'react-native-reanimated';
+import { WithSpringConfig, WithTimingConfig } from 'react-native-reanimated';
 import EventManager from './eventmanager';
 import { Route } from './hooks/use-router';
 
@@ -133,9 +133,10 @@ export type ActionSheetProps<SheetId extends keyof Sheets = never> = {
    */
   openAnimationConfig?: WithSpringConfig;
   /**
-   * The open animation is a spring animation. You can modify it by providing a custom config.
+   * The close animation uses a timing animation by default. You can provide
+   * either a timing or spring config to customize it.
    */
-  closeAnimationConfig?: WithSpringConfig;
+  closeAnimationConfig?: WithSpringConfig | WithTimingConfig;
   /**
    * Provide snap points ranging from 0 to 100. ActionSheet will snap between these points. If no snap points
    * are provided, the default is a single snap point set to `100` which means that the sheet will be opened
